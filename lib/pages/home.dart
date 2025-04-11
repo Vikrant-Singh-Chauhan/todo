@@ -10,18 +10,59 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  Stream ? todoStream ;
+  Stream? todoStream;
+
   bool today = false, tomorrow = false, next_week = false;
   bool suggest = false;
   TextEditingController task = TextEditingController();
 
   getOntheLoad() async {
-    todoStream =  await DatabaseMethode().getAllDetails(today?"Today":tomorrow?"Tomorrow":"NextWeek");
-    setState(() {
-
-    });
-
+    todoStream = await DatabaseMethode().getAllDetails(today
+        ? "Today"
+        : tomorrow
+            ? "Tomorrow"
+            : "NextWeek");
+    setState(() {});
   }
+
+  Widget loadHomeScreen() {
+    return StreamBuilder(
+      stream: todoStream,
+      builder: (context, AsyncSnapshot snapshot) {
+        if (snapshot.hasData) {
+          return ListView.builder(
+            itemCount: snapshot.data.docs.length,
+            itemBuilder: (context, index) {
+              var doc = snapshot.data.docs[index];
+              return CheckboxListTile(
+                title: Text(
+                  doc["Work"],
+                  // You might want to replace this with doc["title"] or similar
+                  style: TextStyle(color: Colors.black, fontSize: 15),
+                ),
+                activeColor: Colors.orange,
+                value: doc["Yes"],
+                onChanged: (newValue) async {
+                  await DatabaseMethode().updateTicked(
+                    doc.id,
+                    today ? "Today" : tomorrow ? "Tomorrow" : "NextWeek",
+                    newValue!,
+                  );
+                  setState(() {});
+                },
+
+                controlAffinity: ListTileControlAffinity.leading,
+
+              );
+            },
+          );
+        } else {
+          return Center(child: CircularProgressIndicator());
+        }
+      },
+    );
+  }
+
   @override
   void initState() {
     getOntheLoad();
@@ -39,7 +80,7 @@ class _HomeState extends State<Home> {
           gradient: LinearGradient(colors: [
             Colors.white60,
             Colors.cyan,
-            Colors.brown,
+            Colors.purpleAccent,
           ], begin: Alignment.bottomCenter, end: Alignment.topCenter),
         ),
         child: Column(
@@ -80,10 +121,11 @@ class _HomeState extends State<Home> {
                         ),
                       )
                     : GestureDetector(
-                        onTap: () {
+                        onTap: () async {
                           today = true;
                           tomorrow = false;
                           next_week = false;
+                          await getOntheLoad();
                           setState(() {});
                         },
                         child: Text(
@@ -117,10 +159,11 @@ class _HomeState extends State<Home> {
                         ),
                       )
                     : GestureDetector(
-                        onTap: () {
+                        onTap: () async {
                           today = false;
                           tomorrow = true;
                           next_week = false;
+                          await getOntheLoad();
                           setState(() {});
                         },
                         child: Text(
@@ -155,14 +198,15 @@ class _HomeState extends State<Home> {
                         ),
                       )
                     : GestureDetector(
-                        onTap: () {
+                        onTap: () async {
                           today = false;
                           tomorrow = false;
                           next_week = true;
+                          await getOntheLoad();
                           setState(() {});
                         },
                         child: Text(
-                          "Tomorrow",
+                          "Next Week",
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -176,20 +220,7 @@ class _HomeState extends State<Home> {
             ),
 
             ///    check box ///
-            CheckboxListTile(
-              title: Text(
-                "Go To The Gym",
-                style: TextStyle(color: Colors.black, fontSize: 15),
-              ),
-              activeColor: Colors.orange,
-              value: suggest,
-              onChanged: (newValue) {
-                setState(() {
-                  suggest = newValue!;
-                });
-              },
-              controlAffinity: ListTileControlAffinity.leading,
-            )
+            Expanded(child: loadHomeScreen())
           ],
         ),
       ),
@@ -256,7 +287,10 @@ class _HomeState extends State<Home> {
                     child: ElevatedButton(
                         style: ButtonStyle(),
                         onPressed: () {
-                          Map<String, dynamic> userWork = {"Work": task.text};
+                          Map<String, dynamic> userWork = {
+                            "Work": task.text,
+                            "Yes": false
+                          };
                           today
                               ? DatabaseMethode().addTodayWork(userWork)
                               : tomorrow
